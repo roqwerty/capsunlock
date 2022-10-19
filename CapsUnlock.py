@@ -29,6 +29,8 @@ Notes:
 Future plans:
     Run python/equations in their own threads to make the entire system more cohesive
     Runtime macro recording and replaying (options for key only & abs_mouse+key)
+        https://stackoverflow.com/questions/57664320/how-to-record-mouse-and-keyboard-movement-simultaneously-with-python
+        Make macros use their own thread, too
     More functionality for function graphing, like colors and axis titles and a legend
         3D plots?
     Read abbreviations from file and add the ability for runtime user to add their own.
@@ -48,7 +50,7 @@ from io import StringIO
 from contextlib import redirect_stdout
 import keyboard # Listening to keys. Doc: https://github.com/boppreh/keyboard
 import pyperclip # Clipboard manipulation. Doc: https://pypi.org/project/pyperclip/
-import pyautogui # Better keyboard hotkey sending
+import pyautogui # Better keyboard hotkey sending and media keys
 import matplotlib.pyplot as plt
 import numpy as np
 import multiprocessing
@@ -63,6 +65,9 @@ if 'CLIPBOARD' not in globals():
 if 'PAST_CLIPBOARDS' not in globals():
     global PAST_CLIPBOARDS
     PAST_CLIPBOARDS = [] # A list of all past capsunlock clipboards
+if 'MACROS' not in globals():
+    global MACROS
+    MACROS = [None for i in range(10)] # A list of all stored macros
 
 # Gets and returns the selected text under the cursor from almost anywhere
 def getSelectedText():
@@ -243,6 +248,20 @@ def qrifyclip():
     job.start()
 '''
 
+# Record a macro
+def recordMacro(index):
+    print('Recording keypresses into macro {}...'.format(index), end='')
+    events = keyboard.record(until='esc')
+    global MACROS
+    MACROS[index] = events
+    print('Done.')
+
+# Replay a macro
+def replayMacro(index):
+    print('Replaying keypresses from macro {}...'.format(index), end='')
+    keyboard.play(MACROS[index])
+    print('Done.')
+
 
 
 ### DEV FUNCTIONS
@@ -283,6 +302,13 @@ def main():
     # Visuals
     keyboard.add_hotkey('caps lock+q', qrify, suppress=True)
     #keyboard.add_hotkey('caps lock+shift+q', qrifyclip, suppress=True)
+    # Media
+    keyboard.add_hotkey('caps lock+m', pyautogui.press, suppress=True, args=['playpause'])
+    keyboard.add_hotkey('caps lock+comma', pyautogui.press, suppress=True, args=["prevtrack"])
+    keyboard.add_hotkey('caps lock+.', pyautogui.press, suppress=True, args=["nexttrack"])
+    # Macros
+    #keyboard.add_hotkey('caps lock+1', replayMacro, suppress=True, args=[1])
+    #keyboard.add_hotkey('caps lock+shift+1', recordMacro, suppress=True, args=[1])
     # Navigation
     keyboard.add_hotkey('caps lock+i', keyboard.send, suppress=True, args=['up'])
     keyboard.add_hotkey('caps lock+j', keyboard.send, suppress=True, args=['left'])
@@ -305,7 +331,7 @@ def main():
 
     # Print help text
     print('''
-    CapsUnlock 0.1
+    CapsUnlock 0.2
 
     (All below hotkeys are in ADDITION to the Caps Lock key)
     esc     : Exit CapsUnlock
@@ -318,10 +344,12 @@ def main():
         +shift for additional graphing settings popup
     q       : Create and display a QR code for the selected text
         +shift to make from text in system keyboard (REMOVED)
+    m       : Play/pause music
+    ./,     : Next/previous track (matches </> symbols)
 
     WIP:
-    0-9     : Replay the macro recorded to the given digit
-        +shift records a macro to the given digit, with overwriting
+    0-9     : Replay the macro recorded to the given digit (needs elevated permissions)
+        +shift records a macro to the given digit, with overwriting until ESC is pressed
         +shift+alt records a macro with mouse events (absolute position)
     ''')
 
